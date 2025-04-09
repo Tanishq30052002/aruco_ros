@@ -1,0 +1,46 @@
+name: Build ROS 2 Package
+
+on:
+  push:
+    branches:
+      - '**'  # Trigger on all branches
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up ROS 2
+      uses: ros-tooling/setup-ros@v0.7
+      with:
+        required-ros-distributions: humble
+
+    - name: Setup colcon workspace
+      run: |
+        mkdir -p ros2_ws/src
+        cp -r . ros2_ws/src/
+        cd ros2_ws
+        vcs import src < src/.repos || true
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        rosdep update
+        cd ros2_ws
+        rosdep install --from-paths src --ignore-src -r -y
+
+    - name: Build with colcon
+      run: |
+        cd ros2_ws
+        source /opt/ros/humble/setup.bash
+        colcon build --event-handlers console_cohesion+
+
+    - name: Run tests (optional)
+      run: |
+        cd ros2_ws
+        source install/setup.bash
+        colcon test
+        colcon test-result --verbose
